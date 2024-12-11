@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dodge Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #2c3e50;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+
+        .game-container {
+            text-align: center;
+        }
+
+        #gameArea {
+            width: 600px;
+            height: 400px;
+            border: 4px solid #3498db;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            background-color: #34495e;
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+        }
+
+        #player {
+            width: 30px;
+            height: 30px;
+            background-color: #3498db;
+            border-radius: 5px;
+            position: absolute;
+            left: 50px;
+            top: 200px;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+        }
+
+        .obstacle {
+            width: 40px;
+            height: 40px;
+            background-color: #e74c3c;
+            border-radius: 5px;
+            position: absolute;
+            right: -40px;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 600px;
+            margin: 20px auto;
+        }
+
+        .score-display {
+            font-size: 24px;
+            color: #3498db;
+        }
+
+        .leaderboard {
+            background-color: #34495e;
+            border: 2px solid #3498db;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            width: 200px;
+        }
+
+        .leaderboard h2 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .leaderboard ol {
+            padding-left: 20px;
+            margin: 0;
+            text-align: left;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(44, 62, 80, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .start-button {
+            padding: 15px 30px;
+            font-size: 24px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            margin-top: 20px;
+        }
+
+        .start-button:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+
+        .game-title {
+            font-size: 48px;
+            color: #3498db;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-instructions {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 20px;
+            text-align: center;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-info">
+            <div class="score-display">Score: <span id="score">0</span></div>
+            <div class="high-score">High Score: <span id="highScore">0</span></div>
+        </div>
+        <div id="gameArea">
+            <div id="player"></div>
+            <div id="startScreen" class="start-screen">
+                <h1 class="game-title">Dodge Game</h1>
+                <div class="game-instructions">
+                    <p>Use arrow keys to move the blue square</p>
+                    <p>Avoid the red boxes coming from the right</p>
+                    <p>Try to survive as long as possible!</p>
+                </div>
+                <button class="start-button" onclick="startGame()">Start Game</button>
+            </div>
+        </div>
+        <p>Use arrow keys to move the blue square and avoid red boxes!</p>
+        
+        <div class="leaderboard">
+            <h2>Top Players</h2>
+            <ol id="leaderboardList"></ol>
+        </div>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const gameArea = document.getElementById('gameArea');
+        const scoreElement = document.getElementById('score');
+        let score = 0;
+        let isGameOver = false;
+
+        // Player position
+        let playerPos = {
+            x: 50,
+            y: 200
+        };
+
+        // Player movement
+        let keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function movePlayer() {
+            if (keys['ArrowUp'] && playerPos.y > 0) playerPos.y -= 5;
+            if (keys['ArrowDown'] && playerPos.y < 370) playerPos.y += 5;
+            if (keys['ArrowLeft'] && playerPos.x > 0) playerPos.x -= 5;
+            if (keys['ArrowRight'] && playerPos.x < 570) playerPos.x += 5;
+
+            player.style.left = playerPos.x + 'px';
+            player.style.top = playerPos.y + 'px';
+        }
+
+        // Add these variables at the beginning of the script
+        let obstacleSpeed = 3;
+        let obstacleInterval;
+        let spawnRate = 2000;
+        let difficultyInterval;
+        
+        // Modify createObstacle function
+        function createObstacle() {
+            if (isGameOver) return;
+            
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            obstacle.style.top = Math.random() * (gameArea.offsetHeight - 40) + 'px';
+            gameArea.appendChild(obstacle);
+
+            let position = gameArea.offsetWidth;
+            
+            function moveObstacle() {
+                if (isGameOver) return;
+                
+                position -= obstacleSpeed;  // Use dynamic speed
+                obstacle.style.right = (gameArea.offsetWidth - position) + 'px';
+
+                // Check collision
+                const playerRect = player.getBoundingClientRect();
+                const obstacleRect = obstacle.getBoundingClientRect();
+
+                if (
+                    playerRect.left < obstacleRect.right &&
+                    playerRect.right > obstacleRect.left &&
+                    playerRect.top < obstacleRect.bottom &&
+                    playerRect.bottom > obstacleRect.top
+                ) {
+                    gameOver();
+                }
+
+                if (position < -40) {
+                    obstacle.remove();
+                    score += 1;
+                    scoreElement.textContent = score;
+                } else {
+                    requestAnimationFrame(moveObstacle);
+                }
+            }
+
+            moveObstacle();
+        }
+
+        // Add function to increase difficulty
+        function increaseDifficulty() {
+            obstacleSpeed += 0.5;  // Increase speed
+            spawnRate = Math.max(500, spawnRate - 100);  // Decrease spawn rate, but not lower than 500ms
+            
+            // Clear and restart obstacle spawning with new rate
+            clearInterval(obstacleInterval);
+            obstacleInterval = setInterval(createObstacle, spawnRate);
+        }
+
+        // Add at the beginning of the script
+        let gameStarted = false;
+        const startScreen = document.getElementById('startScreen');
+
+        // Modify startGame function
+        function startGame() {
+            gameStarted = true;
+            isGameOver = false;
+            score = 0;
+            scoreElement.textContent = '0';
+            startScreen.style.display = 'none';
+            
+            // Reset difficulty
+            obstacleSpeed = 3;
+            spawnRate = 2000;
+            
+            gameLoop();
+            obstacleInterval = setInterval(createObstacle, spawnRate);
+            
+            // Start difficulty progression
+            difficultyInterval = setInterval(increaseDifficulty, 10000); // Increase difficulty every 10 seconds
+        }
+
+        // Modify the gameOver function
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(obstacleInterval);
+            clearInterval(difficultyInterval);  // Clear difficulty interval
+            
+            // Update high score
+            const currentHighScore = parseInt(localStorage.getItem('highScore')) || 0;
+            if (score > currentHighScore) {
+                localStorage.setItem('highScore', score);
+                document.getElementById('highScore').textContent = score;
+            }
+
+            // Check if player made it to leaderboard
+            const lowestScore = fakeLeaderboard[fakeLeaderboard.length - 1].score;
+            if (score > lowestScore) {
+                const playerName = prompt('New high score! Enter your name:');
+                if (playerName) {
+                    fakeLeaderboard.push({ name: playerName, score: score });
+                    fakeLeaderboard.sort((a, b) => b.score - a.score);
+                    fakeLeaderboard.pop();
+                    updateLeaderboard();
+                }
+            }
+
+            alert('Game Over! Your score: ' + score);
+            startScreen.style.display = 'flex';
+            gameStarted = false;
+            
+            // Reset player position
+            playerPos = { x: 50, y: 200 };
+            player.style.left = playerPos.x + 'px';
+            player.style.top = playerPos.y + 'px';
+            
+            // Remove all obstacles
+            const obstacles = document.querySelectorAll('.obstacle');
+            obstacles.forEach(obstacle => obstacle.remove());
+        }
+
+        // Modify the game loop
+        function gameLoop() {
+            if (!isGameOver && gameStarted) {
+                movePlayer();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Initialize high score and leaderboard
+        document.getElementById('highScore').textContent = localStorage.getItem('highScore') || '0';
+        updateLeaderboard();
+
+        // Add fake leaderboard data
+        const fakeLeaderboard = [
+            { name: "Pro_Gamer", score: 156 },
+            { name: "SpeedRunner", score: 143 },
+            { name: "DodgeMaster", score: 128 },
+            { name: "BoxAvoider", score: 115 },
+            { name: "GameKing", score: 98 }
+        ];
+
+        // Update leaderboard display
+        function updateLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+            leaderboardList.innerHTML = '';
+            
+            fakeLeaderboard.forEach(player => {
+                const li = document.createElement('li');
+                li.textContent = `${player.name} - ${player.score}`;
+                leaderboardList.appendChild(li);
+            });
+        }
+
+        // Remove the automatic game loop and obstacle creation
+        // gameLoop();
+        // setInterval(createObstacle, 2000);
+    </script>
+</body>
+</html>
